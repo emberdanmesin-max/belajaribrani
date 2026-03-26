@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hebrew Writing Master - Pro UI</title>
+    <style>
+        :root { 
+            --primary: #2c3e50; 
+            --accent: #3498db; 
+            --success: #2ecc71; 
+            --bg: #f8f9fa;
+            --white: #ffffff;
+        }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; flex-direction: column; align-items: center; background: var(--bg); padding: 15px; margin: 0; }
+        
+        .app-card { background: var(--white); padding: 25px; border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); width: 100%; max-width: 400px; text-align: center; }
+        
+        .header h2 { margin: 0; color: var(--primary); font-size: 22px; }
+        .header p { font-size: 12px; color: #95a5a6; margin: 4px 0 20px 0; letter-spacing: 0.5px; }
+
+        /* Char Navigation Row */
+        .char-nav-container { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        select { flex-grow: 1; padding: 12px; border-radius: 12px; border: 2px solid #edf2f7; font-size: 16px; outline: none; cursor: pointer; background-color: #fff; }
+        .btn-char-nav { background: #edf2f7; color: var(--primary); width: 45px; height: 45px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+
+        /* Main Play Button */
+        .btn-play-large { background: var(--success); color: white; width: 100%; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: bold; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(46, 204, 113, 0.2); }
+
+        canvas { background: #fff; border: 2px solid #f1f4f8; border-radius: 16px; margin: 10px 0; touch-action: none; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+
+        /* Step Controls */
+        .step-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        button { border: none; cursor: pointer; transition: all 0.2s; font-weight: 600; }
+        button:active { transform: scale(0.96); opacity: 0.8; }
+        .btn-step { background: var(--accent); color: white; padding: 12px; border-radius: 12px; }
+        .btn-reset { background: #fff; color: #e74c3c; border: 2px solid #fee2e2; padding: 12px; border-radius: 12px; grid-column: span 2; margin-top: 5px; }
+
+        .status-bar { font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+<div class="app-card">
+    <div class="header">
+        <h2>Hebrew Master</h2>
+        <p>GRID 7x9 SYSTEM • HD RESOLUTION</p>
+    </div>
+    
+    <div class="char-nav-container">
+        <button class="btn-char-nav" onclick="changeChar(-1)">‹</button>
+        <select id="letterSelect" onchange="resetApp()">
+            <option value="alef">א - Alef</option>
+            <option value="bet">ב - Bet</option>
+            <option value="gimel">ג - Gimel</option>
+            <option value="dalet">ד - Dalet</option>
+            <option value="he">ה - He</option>
+            <option value="vav">ו - Vav</option>
+            <option value="zayin">ז - Zayin</option>
+            <option value="het">ח - Het</option>
+            <option value="tet">ט - Tet</option>
+            <option value="yod">י - Yod</option>
+            <option value="kaf">כ - Kaf</option>
+            <option value="lamed">ל - Lamed</option>
+            <option value="mem">מ - Mem</option>
+            <option value="nun">נ - Nun</option>
+            <option value="samekh">ס - Samekh</option>
+            <option value="ayin">ע - Ayin</option>
+            <option value="pe">פ - Pe</option>
+            <option value="tsadi">צ - Tsadi</option>
+            <option value="qof">ק - Qof</option>
+            <option value="resh">ר - Resh</option>
+            <option value="shin">ש - Shin</option>
+            <option value="tav">ת - Tav</option>
+        </select>
+        <button class="btn-char-nav" onclick="changeChar(1)">›</button>
+    </div>
+
+    <button class="btn-play-large" onclick="playAuto()">▶ MULAI ANIMASI</button>
+
+    <div class="status-bar" id="statusBar">Ready to Learn</div>
+    
+    <canvas id="canvas" width="330" height="420"></canvas>
+
+    <div class="step-controls">
+        <button class="btn-step" onclick="prevStep()">MUNDUR</button>
+        <button class="btn-step" onclick="nextStep()">LANJUT</button>
+        <button class="btn-reset" onclick="resetApp()">ULANGI HURUF INI</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const statusBar = document.getElementById('statusBar');
+    const letterSelect = document.getElementById('letterSelect');
+    
+    const PADDING_X = 40, PADDING_Y = 40;
+    const SPACING = (canvas.width - PADDING_X * 2) / 6;
+    let currentStep = 0, isPlaying = false;
+
+    const getPos = (code) => {
+        const col = code.charCodeAt(0) - 65; 
+        const row = parseInt(code.substring(1));
+        return { x: PADDING_X + col * SPACING, y: PADDING_Y + row * SPACING };
+    };
+
+    const database = {
+        alef: ["A1-G7", "G1-D4", "A7-D4"],
+        bet: ["A1-G1", "G1-G7", "A7-G7"],
+        gimel: ["E1-G1", "G1-G7", "G5-D7"],
+        dalet: ["A1-G1", "G1-G7"],
+        he: ["A1-G1", "G1-G7", "A2-A7"],
+        vav: ["E1-G1", "G1-G7"],
+        zayin: ["F1-B1", "D1-D7"],
+        het: ["A1-G1", "G1-G7", "A1-A7"],
+        tet: ["A2-A7", "A7-G7", "G7-G1", "G1-D1", "D1-D3"],
+        yod: ["E1-G1", "G1-G3"],
+        kaf: ["A1-G1", "G1-G7", "G7-A7"],
+        lamed: ["D0-D1", "D1-D3", "D3-G3", "G3-G5", "G5-D7"],
+        mem: ["G1-G7", "G7-A7", "A7-A2", "A2-G1"],
+        nun: ["D1-G1", "G1-G7", "G7-D7"],
+        samekh: ["A1-G1", "G1-G7", "G7-A7", "A7-A1"],
+        ayin: ["G1-G7", "G7-A7", "A1-D7"],
+        pe: ["A1-G1", "G1-G7", "G7-A7", "A1-A3", "A3-D3"],
+        tsadi: ["A1-G7", "G7-A7", "G1-E5"],
+        qof: ["A1-G1", "G1-C5", "A2-A8"],
+        resh: ["A1-G1", "G1-G7"],
+        shin: ["A1-A7", "A7-G7", "G7-G1", "D1-D7"],
+        tav: ["A1-G1", "G1-G7", "B1-B7", "B7-A7"]
+    };
+
+    function changeChar(dir) {
+        let idx = letterSelect.selectedIndex + dir;
+        if (idx >= 0 && idx < letterSelect.options.length) {
+            letterSelect.selectedIndex = idx;
+            resetApp();
+        }
+    }
+
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Soft Grid
+        ctx.lineWidth = 1;
+        for(let i=0; i<=8; i++) {
+            ctx.beginPath();
+            ctx.strokeStyle = (i === 0 || i === 8) ? "#ebf1f5" : "#f7f9fb";
+            ctx.moveTo(0, PADDING_Y + i*SPACING); ctx.lineTo(canvas.width, PADDING_Y + i*SPACING);
+            ctx.stroke();
+        }
+
+        const strokes = database[letterSelect.value];
+        // Draw Ghost
+        strokes.forEach(s => {
+            const [f, t] = s.split("-");
+            const from = getPos(f), to = getPos(t);
+            ctx.beginPath(); ctx.strokeStyle = "#f1f4f8"; ctx.lineWidth = 12; ctx.lineCap = 'round';
+            ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
+        });
+
+        // Draw Active
+        for (let i = 0; i < currentStep; i++) {
+            const [f, t] = strokes[i].split("-");
+            const from = getPos(f), to = getPos(t);
+            ctx.beginPath(); ctx.strokeStyle = "#3498db"; ctx.lineWidth = 10; ctx.lineCap = 'round';
+            ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
+            ctx.beginPath(); ctx.fillStyle = "#2c3e50"; ctx.arc(from.x, from.y, 4, 0, Math.PI*2); ctx.fill();
+        }
+        statusBar.innerText = currentStep > 0 ? `STEP ${currentStep} / ${strokes.length}` : "READY";
+    }
+
+    function nextStep() { if (currentStep < database[letterSelect.value].length) { currentStep++; render(); } }
+    function prevStep() { if (currentStep > 0) { currentStep--; render(); } }
+    function resetApp() { currentStep = 0; isPlaying = false; render(); }
+    
+    async function playAuto() {
+        if (isPlaying) return; isPlaying = true; currentStep = 0;
+        const strokes = database[letterSelect.value];
+        for (let i = 0; i < strokes.length; i++) {
+            if (!isPlaying) break;
+            currentStep++; render();
+            await new Promise(r => setTimeout(r, 700));
+        }
+        isPlaying = false;
+    }
+    render();
+</script>
+</body>
+</html>
